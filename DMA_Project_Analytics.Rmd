@@ -1,0 +1,132 @@
+---
+title: "DMA_Project_Analytics"
+author: "Apurva Nandgaonkar"
+date: "09/12/2021"
+output: html_document
+---
+
+```{r}
+#Importing packages
+install.packages("dplyr")
+install.packages("ggplot2")
+install.packages("RMySQL")
+```
+
+
+```{r}
+#Importing library
+library(RMySQL)
+library(ggplot2)
+library(dplyr)
+```
+Connecting to delypik database..............
+
+```{r}
+
+delypik_db <- dbConnect(MySQL(), user = 'root',password = 'Apurva23',
+                  dbname = 'delypik', host = '127.0.0.1')
+```
+
+Tables of the delypik database
+```{r}
+#Displaying list of tables in delypik database
+dbListTables(delypik_db)
+```
+
+User table
+```{r}
+#Displaying user table in delypik database as an example
+dbListFields(delypik_db, 'user')
+```
+
+Query 1:
+
+```{r}
+#Running a query in mysql through connection established
+#Query 1
+result_set1 <- dbSendQuery(delypik_db, "SELECT
+CONVERT(agent_id, CHAR)as agent_id, avg(rating) as rating
+FROM
+rating
+GROUP BY agent_id")
+
+#Fetching the results and  storing output in variable mydata1
+mydata1 <- dbFetch(result_set1)
+mydata1
+#
+hist(mydata1$rating,
+     main="No. of Delivery agents falling between each rating level", 
+     xlab="Rating",
+     ylab="Number of Delivery Agents",
+     border="black", 
+     col="grey",
+     xlim=c(0,5),
+     las=1, 
+     breaks=5)
+
+```
+
+Query 2:
+
+```{r}
+result_set2 <- dbSendQuery(delypik_db, "SELECT order_type
+                                        FROM ORDERS")
+                                        
+mydata2 <- dbFetch(result_set2)
+mydata2
+
+mydata2 %>% ggplot(aes(x=order_type)) + 
+            geom_bar(aes(fill = "order_type"))+
+            theme(axis.text.x=element_text(angle = -45, hjust = 0))
+
+
+```
+
+
+Query 3
+
+Retrieve the top 5 zipcodes from where most orders of type 'Send Service' were placed.
+
+```{r}
+
+result_set3 <- dbSendQuery(delypik_db, "SELECT CONVERT(PA.zipcode, CHAR) as zipcode, COUNT(order_id) AS                                            TOTAL_ORDERS 
+                                        FROM orders O
+                                        JOIN pickup_address PA 
+                                        ON o.pickup_addr_id = PA.pickup_addr_id
+                                        WHERE o.order_type = 'Send Service'
+                                        GROUP BY PA.zipcode
+                                        ORDER BY TOTAL_ORDERS desc
+                                        LIMIT 5")
+
+mydata3 <- dbFetch(result_set3)
+mydata3
+
+
+ggplot(data=mydata3, aes(x=zipcode, y=TOTAL_ORDERS)) +
+  geom_bar(stat="identity",fill="steelblue") + 
+  labs(x= 'Zipcode' , y= 'Count of Orders', title = 'Count of Send Service orders placed in each month')
+
+```
+Query 4:
+
+```{r}
+result_set4 <- dbSendQuery(delypik_db, "select monthname(order_date) as Month, 
+                                        count(order_id) as count
+                                        from orders
+                                        where year(order_date) = 2021 
+                                        group by month(order_date);")
+
+mydata4 <- dbFetch(result_set4)
+mydata4
+
+
+mydata4 %>% ggplot(aes(x=Month, y=count) )+
+  geom_col(aes(fill= "Month"))+
+  labs(x= 'Month of year 2021' , y= 'Number of Orders', title = 'Number of orders placed in each month')+
+  theme(axis.text.x=element_text(angle = -45, hjust = 0))
+
+
+
+#dbClearResult(result_set4)
+```
+
